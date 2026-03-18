@@ -12,8 +12,8 @@ st.title("🖋️ Pixel Perfect Stamp Generator")
 # =========================
 # 🎛️ CONTROLS
 # =========================
-font_size = st.slider("Outer Text Size", 20, 100, 50)
-center_size = st.slider("Center Text Size", 20, 150, 80)
+font_size = st.slider("Outer Text Size", 20, 80, 40)
+center_size = st.slider("Center Text Size", 20, 120, 70)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 uploaded_templates = st.file_uploader(
@@ -45,6 +45,7 @@ def detect_ring_radii(img):
     cx, cy = w // 2, h // 2
 
     radii = []
+
     for x in range(cx, w):
         if blue_mask[cy, x]:
             radii.append(x - cx)
@@ -55,22 +56,26 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 PIXEL PERFECT ARC TEXT
+# 🔥 DYNAMIC ARC ENGINE
 # =========================
 def draw_arc_text(draw, center, radius, text, font, top=True):
     text = text.upper()
 
-    # measure each character width
+    if len(text) == 0:
+        return
+
+    # measure real width
     char_widths = [draw.textlength(c, font=font) for c in text]
     total_width = sum(char_widths)
 
     circumference = 2 * math.pi * radius
     angle_per_pixel = 360 / circumference
 
+    # dynamic arc based on text length
     total_angle = total_width * angle_per_pixel
 
-    # clamp for stamp look
-    total_angle = min(total_angle, 140)
+    # clamp for clean look
+    total_angle = max(60, min(total_angle, 140))
 
     start_angle = -90 - total_angle / 2
     current_angle = start_angle
@@ -87,7 +92,7 @@ def draw_arc_text(draw, center, radius, text, font, top=True):
         x = center[0] + radius * math.cos(rad)
         y = center[1] + radius * math.sin(rad)
 
-        box = int(font.size * 2.8)
+        box = int(font.size * 2.5)
 
         char_img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
         char_draw = ImageDraw.Draw(char_img)
@@ -145,24 +150,21 @@ def generate(df, templates):
                 inner = img.width * 0.30
                 outer = img.width * 0.45
 
-            # 🔥 FINAL GEOMETRY
-            radius = int(inner + (outer - inner) * 0.72)
+            # balanced radius
+            radius = int(inner + (outer - inner) * 0.60)
 
-            # fonts
-            font_outer = get_font(int(font_size * 2.0))
-            font_center = get_font(int(center_size * 2.2))
+            font_outer = get_font(int(font_size * 1.2))
+            font_center = get_font(int(center_size * 1.6))
 
-            # split text evenly
-            text = name.upper()
-            mid = len(text) // 2
-            top_text = text[:mid]
-            bottom_text = text[mid:]
+            # smart split (word-safe)
+            words = name.upper().split()
+            half = len(words) // 2
+            top_text = " ".join(words[:half])
+            bottom_text = " ".join(words[half:])
 
-            # draw arcs
             draw_arc_text(draw, center, radius, top_text, font_outer, top=True)
             draw_arc_text(draw, center, radius, bottom_text, font_outer, top=False)
 
-            # center text
             draw_center(draw, center, city.upper(), font_center)
 
             results.append((img, f"{name}_{city}_{t.name}"))
@@ -201,4 +203,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Pixel Perfect Stamp Generated")
+        st.success("✅ Final Perfect Stamp Generated")
