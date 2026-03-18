@@ -6,13 +6,14 @@ import math
 import os
 import zipfile
 
-st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Stamp Generator")
+st.set_page_config(page_title="Stamp Generator Pro", layout="centered")
+st.title("🖋️ Stamp Generator PRO")
 
 # =========================
 # 🎛️ CONTROLS
 # =========================
-font_size = st.slider("Font Size", 20, 100, 50)
+font_size = st.slider("Outer Text Size", 20, 100, 45)
+center_size = st.slider("Center Text Size", 20, 150, 80)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 uploaded_templates = st.file_uploader(
@@ -20,16 +21,16 @@ uploaded_templates = st.file_uploader(
 )
 
 # =========================
-# 🔤 FONT
+# 🔤 ROBOTO FONT
 # =========================
 def get_font(size):
     try:
-        return ImageFont.truetype("arial.ttf", size)
+        return ImageFont.truetype("Roboto-Regular.ttf", size)
     except:
         return ImageFont.load_default()
 
 # =========================
-# 🔍 DETECT RING
+# 🔍 DETECT RINGS
 # =========================
 def detect_ring_radii(img):
     img_np = np.array(img)
@@ -55,29 +56,31 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 CLEAN CIRCULAR TEXT
+# 🔥 ARC TEXT ENGINE
 # =========================
-def draw_circular_text(draw, center, radius, text, font):
+def draw_arc_text(draw, center, radius, text, font, top=True):
     text = text.upper()
     n = len(text)
 
     if n == 0:
         return
 
-    # ✅ balanced arc
-    total_angle = 180
+    total_angle = 160
     start_angle = -90 - total_angle / 2
     step = total_angle / (n - 1 if n > 1 else 1)
 
     for i, char in enumerate(text):
         angle = start_angle + i * step
+
+        if not top:
+            angle += 180  # flip for bottom arc
+
         rad = math.radians(angle)
 
         x = center[0] + radius * math.cos(rad)
         y = center[1] + radius * math.sin(rad)
 
-        # bigger canvas for clarity
-        box = int(font.size * 3.2)
+        box = int(font.size * 3)
 
         char_img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
         char_draw = ImageDraw.Draw(char_img)
@@ -86,11 +89,14 @@ def draw_circular_text(draw, center, radius, text, font):
             (box // 2, box // 2),
             char,
             font=font,
-            fill="white",   # important for dark template
+            fill="white",
             anchor="mm"
         )
 
-        rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
+        # orientation
+        rotation = angle + 90 if top else angle - 90
+
+        rotated = char_img.rotate(rotation, resample=Image.BICUBIC)
 
         draw.bitmap(
             (x - box // 2, y - box // 2),
@@ -134,15 +140,23 @@ def generate(df, templates):
                 inner = img.width * 0.30
                 outer = img.width * 0.45
 
-            # bigger readable text
-            font_outer = get_font(int(font_size * 1.6))
+            # PERFECT TEXT POSITION
+            radius = int(inner + (outer - inner) * 0.55)
 
-            # correct position between rings
-            radius = int(inner + (outer - inner) * 0.60)
+            font_outer = get_font(font_size)
 
-            draw_circular_text(draw, center, radius, name, font_outer)
+            # split text into top and bottom
+            words = name.split()
+            half = len(words) // 2
 
-            font_center = get_font(int(font_size * 1.1))
+            top_text = " ".join(words[:half])
+            bottom_text = " ".join(words[half:])
+
+            draw_arc_text(draw, center, radius, top_text, font_outer, top=True)
+            draw_arc_text(draw, center, radius, bottom_text, font_outer, top=False)
+
+            # center text
+            font_center = get_font(center_size)
             draw_center(draw, center, city.upper(), font_center)
 
             results.append((img, f"{name}_{city}_{t.name}"))
@@ -181,4 +195,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Stamp Generated Successfully")
+        st.success("✅ Professional Stamp Generated")
