@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 import os
 import zipfile
+import base64
 
 st.set_page_config(page_title="Stamp Generator PRO", layout="centered")
-st.title("🖋️ Stamp Generator (Final Version)")
+st.title("🖋️ Stamp Generator (Final Working Version)")
 
 # =========================
 # 🎛️ CONTROLS
@@ -60,7 +61,7 @@ def create_svg(name, city):
             </textPath>
         </text>
 
-        <!-- Center -->
+        <!-- Center Text -->
         <text x="250" y="265"
               text-anchor="middle"
               font-size="{center_size}"
@@ -80,8 +81,18 @@ def create_svg(name, city):
     """
     return svg
 
+
 # =========================
-# 🚀 MAIN LOGIC
+# 🔥 FIXED SVG RENDER
+# =========================
+def render_svg(svg):
+    b64 = base64.b64encode(svg.encode()).decode()
+    html = f'<img src="data:image/svg+xml;base64,{b64}" width="400"/>'
+    st.markdown(html, unsafe_allow_html=True)
+
+
+# =========================
+# 🚀 MAIN
 # =========================
 if uploaded_excel:
     df = pd.read_excel(uploaded_excel)
@@ -93,9 +104,7 @@ if uploaded_excel:
         st.subheader("👀 Preview")
 
         preview_svg = create_svg(df.iloc[0]["name"], df.iloc[0]["city"])
-
-        # ✅ Correct SVG rendering
-        st.markdown(preview_svg, unsafe_allow_html=True)
+        render_svg(preview_svg)
 
         # =========================
         # GENERATE + DOWNLOAD
