@@ -7,12 +7,12 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator Pro", layout="centered")
-st.title("🖋️ Stamp Generator PRO")
+st.title("🖋️ Pixel Perfect Stamp Generator")
 
 # =========================
 # 🎛️ CONTROLS
 # =========================
-font_size = st.slider("Outer Text Size", 20, 100, 45)
+font_size = st.slider("Outer Text Size", 20, 100, 50)
 center_size = st.slider("Center Text Size", 20, 150, 80)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
@@ -21,11 +21,11 @@ uploaded_templates = st.file_uploader(
 )
 
 # =========================
-# 🔤 ROBOTO FONT
+# 🔤 FONT
 # =========================
 def get_font(size):
     try:
-        return ImageFont.truetype("Roboto-Regular.ttf", size)
+        return ImageFont.truetype("Roboto-Bold.ttf", size)
     except:
         return ImageFont.load_default()
 
@@ -45,7 +45,6 @@ def detect_ring_radii(img):
     cx, cy = w // 2, h // 2
 
     radii = []
-
     for x in range(cx, w):
         if blue_mask[cy, x]:
             radii.append(x - cx)
@@ -56,31 +55,39 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 ARC TEXT ENGINE
+# 🔥 PIXEL PERFECT ARC TEXT
 # =========================
 def draw_arc_text(draw, center, radius, text, font, top=True):
     text = text.upper()
-    n = len(text)
 
-    if n == 0:
-        return
+    # measure each character width
+    char_widths = [draw.textlength(c, font=font) for c in text]
+    total_width = sum(char_widths)
 
-    total_angle = 160
+    circumference = 2 * math.pi * radius
+    angle_per_pixel = 360 / circumference
+
+    total_angle = total_width * angle_per_pixel
+
+    # clamp for stamp look
+    total_angle = min(total_angle, 140)
+
     start_angle = -90 - total_angle / 2
-    step = total_angle / (n - 1 if n > 1 else 1)
+    current_angle = start_angle
 
     for i, char in enumerate(text):
-        angle = start_angle + i * step
+        char_angle = char_widths[i] * angle_per_pixel
+        angle = current_angle + char_angle / 2
 
         if not top:
-            angle += 180  # flip for bottom arc
+            angle += 180
 
         rad = math.radians(angle)
 
         x = center[0] + radius * math.cos(rad)
         y = center[1] + radius * math.sin(rad)
 
-        box = int(font.size * 3)
+        box = int(font.size * 2.8)
 
         char_img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
         char_draw = ImageDraw.Draw(char_img)
@@ -93,15 +100,13 @@ def draw_arc_text(draw, center, radius, text, font, top=True):
             anchor="mm"
         )
 
-        # orientation
         rotation = angle + 90 if top else angle - 90
 
         rotated = char_img.rotate(rotation, resample=Image.BICUBIC)
 
-        draw.bitmap(
-            (x - box // 2, y - box // 2),
-            rotated
-        )
+        draw.bitmap((x - box // 2, y - box // 2), rotated)
+
+        current_angle += char_angle
 
 # =========================
 # 📍 CENTER TEXT
@@ -140,23 +145,24 @@ def generate(df, templates):
                 inner = img.width * 0.30
                 outer = img.width * 0.45
 
-            # PERFECT TEXT POSITION
-            radius = int(inner + (outer - inner) * 0.55)
+            # 🔥 FINAL GEOMETRY
+            radius = int(inner + (outer - inner) * 0.72)
 
-            font_outer = get_font(font_size)
+            # fonts
+            font_outer = get_font(int(font_size * 2.0))
+            font_center = get_font(int(center_size * 2.2))
 
-            # split text into top and bottom
-            words = name.split()
-            half = len(words) // 2
+            # split text evenly
+            text = name.upper()
+            mid = len(text) // 2
+            top_text = text[:mid]
+            bottom_text = text[mid:]
 
-            top_text = " ".join(words[:half])
-            bottom_text = " ".join(words[half:])
-
+            # draw arcs
             draw_arc_text(draw, center, radius, top_text, font_outer, top=True)
             draw_arc_text(draw, center, radius, bottom_text, font_outer, top=False)
 
             # center text
-            font_center = get_font(center_size)
             draw_center(draw, center, city.upper(), font_center)
 
             results.append((img, f"{name}_{city}_{t.name}"))
@@ -195,4 +201,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Professional Stamp Generated")
+        st.success("✅ Pixel Perfect Stamp Generated")
