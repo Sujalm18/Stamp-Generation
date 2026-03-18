@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 import os
 import zipfile
-import cairosvg
 
 st.set_page_config(page_title="Stamp Generator PRO", layout="centered")
-st.title("🖋️ Stamp Generator (Production Version)")
+st.title("🖋️ Stamp Generator (Final Version)")
 
 # =========================
 # 🎛️ CONTROLS
@@ -17,7 +16,7 @@ letter_spacing = st.slider("Letter Spacing", 0, 10, 2)
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 
 # =========================
-# 🔥 SVG ENGINE (PERFECT)
+# 🔥 SVG ENGINE
 # =========================
 def create_svg(name, city):
     name = name.upper()
@@ -82,7 +81,7 @@ def create_svg(name, city):
     return svg
 
 # =========================
-# 🚀 MAIN
+# 🚀 MAIN LOGIC
 # =========================
 if uploaded_excel:
     df = pd.read_excel(uploaded_excel)
@@ -93,13 +92,13 @@ if uploaded_excel:
     else:
         st.subheader("👀 Preview")
 
-        svg_preview = create_svg(df.iloc[0]["name"], df.iloc[0]["city"])
+        preview_svg = create_svg(df.iloc[0]["name"], df.iloc[0]["city"])
 
-        # ✅ FIXED SVG RENDER
-        st.markdown(svg_preview, unsafe_allow_html=True)
+        # ✅ Correct SVG rendering
+        st.markdown(preview_svg, unsafe_allow_html=True)
 
         # =========================
-        # GENERATE
+        # GENERATE + DOWNLOAD
         # =========================
         if st.button("🚀 Generate All"):
             os.makedirs("out", exist_ok=True)
@@ -109,21 +108,15 @@ if uploaded_excel:
                 for _, row in df.iterrows():
                     svg = create_svg(row["name"], row["city"])
 
-                    filename = f"{row['name']}_{row['city']}"
+                    filename = f"{row['name']}_{row['city']}.svg"
+                    path = f"out/{filename}"
 
-                    svg_path = f"out/{filename}.svg"
-                    png_path = f"out/{filename}.png"
-
-                    # Save SVG
-                    with open(svg_path, "w") as f:
+                    with open(path, "w") as f:
                         f.write(svg)
 
-                    # Convert to PNG
-                    cairosvg.svg2png(bytestring=svg.encode(), write_to=png_path)
-
-                    z.write(png_path, os.path.basename(png_path))
+                    z.write(path, filename)
 
             with open(zip_path, "rb") as f:
                 st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-            st.success("✅ All stamps generated successfully")
+            st.success("✅ Stamps generated successfully")
