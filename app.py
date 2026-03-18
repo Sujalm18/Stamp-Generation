@@ -7,7 +7,7 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Stamp Generator (Final Stable Version)")
+st.title("🖋️ Stamp Generator")
 
 # =========================
 # 🎛️ CONTROLS
@@ -55,29 +55,31 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 CLEAN CIRCULAR TEXT
+# 🔥 FINAL CIRCULAR TEXT
 # =========================
 def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
-
-    total_angle = 140  # arc span (like reference)
-    start_angle = -90 - total_angle / 2
 
     n = len(text)
     if n == 0:
         return
 
-    step = total_angle / (n - 1 if n > 1 else 1)
+    # Wide arc like reference
+    total_angle = 220
+    start_angle = -90 - total_angle / 2
+
+    # tighter spacing
+    step = total_angle / (n + 2)
 
     for i, char in enumerate(text):
-        angle = start_angle + i * step
+        angle = start_angle + (i + 1) * step
         rad = math.radians(angle)
 
         x = center[0] + radius * math.cos(rad)
         y = center[1] + radius * math.sin(rad)
 
-        # create character canvas
-        box = int(font.size * 3)
+        box = int(font.size * 2.5)
+
         char_img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
         char_draw = ImageDraw.Draw(char_img)
 
@@ -89,7 +91,7 @@ def draw_circular_text(draw, center, radius, text, font):
             anchor="mm"
         )
 
-        # ✅ OUTWARD FACING
+        # outward orientation
         rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
 
         draw.bitmap(
@@ -136,8 +138,8 @@ def generate(df, templates):
 
             font_outer = get_font(font_size)
 
-            # 🔥 PERFECT POSITION BETWEEN RINGS
-            radius = int(inner + (outer - inner) * 0.55)
+            # PERFECT position between rings
+            radius = int(inner + (outer - inner) * 0.50)
 
             draw_circular_text(draw, center, radius, name, font_outer)
 
