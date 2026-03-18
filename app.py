@@ -1,4 +1,4 @@
-# 🚀 STREAMLIT STAMP GENERATOR (FINAL GEOMETRY FIX — TEXT BETWEEN RINGS)
+# 🚀 STREAMLIT STAMP GENERATOR (FINAL VERSION WITH SLIDERS 🔥)
 
 import streamlit as st
 import pandas as pd
@@ -9,7 +9,17 @@ import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
 
-st.title("🖋️ Stamp Generator (Correct Ring Placement)")
+st.title("🖋️ Stamp Generator (Interactive UI)")
+
+# =========================
+# 🎛️ CONTROLS (LIKE STAMPJAM)
+# =========================
+
+font_size_slider = st.slider("Font Size", 10, 100, 40)
+letter_spacing_slider = st.slider("Letter Spacing", 5, 30, 12)
+radius_slider = st.slider("Radius Adjust", 0.1, 0.5, 0.25)
+arc_span_slider = st.slider("Arc Span (Text Width)", 60, 200, 140)
+start_angle_slider = st.slider("Start Angle", -180, 180, -90)
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 uploaded_templates = st.file_uploader("Upload Stamp Templates (PNG)", type=["png"], accept_multiple_files=True)
@@ -22,21 +32,19 @@ def get_font(size):
     except:
         return ImageFont.load_default()
 
-# ✅ KEY FIX: TEXT EXACTLY BETWEEN TWO RINGS
+# Circular text (TOP ARC)
 
-def draw_circular_text(draw, center, radius, text, font, inward=True):
+def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
 
-    # 🔥 FIX: Only use TOP ARC (not full 360)
-    arc_span = 140  # degrees (controls how wide text spreads)
+    arc_span = arc_span_slider
 
-    # Calculate spacing based on text length
     if len(text) > 1:
         angle_step = arc_span / (len(text) - 1)
     else:
         angle_step = 0
 
-    start_angle = -90 - arc_span / 2  # center at top
+    start_angle = start_angle_slider - arc_span / 2
 
     for i, char in enumerate(text):
         angle = start_angle + i * angle_step
@@ -45,16 +53,13 @@ def draw_circular_text(draw, center, radius, text, font, inward=True):
         x = center[0] + radius * math.cos(angle_rad)
         y = center[1] + radius * math.sin(angle_rad)
 
-        char_img = Image.new("RGBA", (140, 140), (0,0,0,0))
+        char_img = Image.new("RGBA", (120, 120), (0,0,0,0))
         char_draw = ImageDraw.Draw(char_img)
-        char_draw.text((70,70), char, font=font, fill="black", anchor="mm")
+        char_draw.text((60,60), char, font=font, fill="black", anchor="mm")
 
-        # rotate properly along arc
-        rotation = angle + 90 if inward else angle - 90
+        rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
 
-        rotated = char_img.rotate(rotation, resample=Image.BICUBIC)
-
-        draw.bitmap((x-70, y-70), rotated)
+        draw.bitmap((x-60, y-60), rotated)
 
 # Center text
 
@@ -63,15 +68,6 @@ def draw_center_text(draw, center, text, font):
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
     draw.text((center[0]-w/2, center[1]-h/2), text, fill="black", font=font)
-
-# 🔥 FINAL FIX: GUARANTEE TEXT INSIDE RING (NO OVERLAP)
-def get_ring_radius(img):
-    # These values are tuned to ensure text sits INSIDE the band
-    outer = img.width * 0.44
-    inner = img.width * 0.30
-
-    # Move text clearly INSIDE (closer to inner ring)
-    return int(inner + (outer - inner) * 0.18)  # 🔥 KEY FIX  # EXACT middle between rings
 
 # Generator
 
@@ -89,21 +85,27 @@ def generate_preview(df, templates):
 
             center = (img.width // 2, img.height // 2)
 
-            # ✅ PERFECT RING POSITION
-            radius = get_ring_radius(img)
+            outer = img.width * 0.44
+            inner = img.width * 0.30
 
-            font_outer = get_font(int(img.width * 0.045))
-            font_center = get_font(int(img.width * 0.09))
+            base_radius = inner + (outer - inner) * radius_slider
 
-            # NAME → BETWEEN RINGS (FIXED)
-            draw_circular_text(draw, center, radius, name, font_outer, inward=True)
+            font_outer = get_font(font_size_slider)
+            font_center = get_font(int(font_size_slider * 1.5))
 
-            # CITY → CENTER
+            # 🔥 FINAL RADIUS FIX (accounts for font height)
+            radius = int(base_radius - font_outer.size * 0.6)
+
+            draw_circular_text(draw, center, radius, name, font_outer)
             draw_center_text(draw, center, city.upper(), font_center)
 
             previews.append((img, f"{name}_{city}_{template_file.name}"))
 
     return previews
+
+# =========================
+# 🚀 MAIN FLOW
+# =========================
 
 if uploaded_file and uploaded_templates:
     try:
@@ -113,9 +115,9 @@ if uploaded_file and uploaded_templates:
         if "name" not in df.columns or "city" not in df.columns:
             st.error("Excel must contain Name and City")
         else:
-            st.subheader("👀 Preview")
+            st.subheader("👀 Live Preview")
 
-            previews = generate_preview(df.head(3), uploaded_templates)
+            previews = generate_preview(df.head(2), uploaded_templates)
 
             for img, name in previews:
                 st.image(img, caption=name)
@@ -139,13 +141,13 @@ if uploaded_file and uploaded_templates:
                 with open(zip_path, "rb") as f:
                     st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-                st.success("✅ TEXT NOW PERFECTLY BETWEEN RINGS")
+                st.success("✅ Perfect Output Generated")
 
     except Exception as e:
         st.error(str(e))
 
 st.markdown("---")
-st.caption("Now text sits EXACTLY between the two blue rings")
+st.caption("Now fully interactive — adjust sliders until PERFECT 🎯")
 
 # requirements.txt
 # streamlit
