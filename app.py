@@ -5,30 +5,32 @@ import zipfile
 import base64
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Stamp Generator")
+st.title("🖋️ Stamp Generator (Final)")
 
 # =========================
-# CONTROLS
+# CONTROLS (TUNED)
 # =========================
-outer_size = st.slider("Outer Text Size", 20, 80, 40)
-center_size = st.slider("Center Text Size", 30, 120, 70)
-letter_spacing = st.slider("Letter Spacing", 0, 10, 2)
+outer_size = st.slider("Outer Text Size", 20, 80, 42)
+center_size = st.slider("Center Text Size", 30, 120, 80)
+letter_spacing = st.slider("Letter Spacing", 0, 5, 1)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 
 # =========================
-# SVG ENGINE (FINAL FIXED)
+# SVG ENGINE (PIXEL PERFECT)
 # =========================
 def create_svg(name, city):
     name = name.upper()
     city = city.upper()
 
+    # Proper circular text with separators
     text = f"{name} • {name}"
 
-    # 🔥 KEY FIX: text radius BETWEEN rings
     outer_r = 200
     inner_r = 180
-    text_r = (outer_r + inner_r) // 2  # = 190
+
+    # 🔥 FINAL TUNED VALUE (VISUAL CENTER)
+    text_r = 186
 
     svg = f"""
     <svg width="500" height="500" viewBox="0 0 500 500"
@@ -41,7 +43,7 @@ def create_svg(name, city):
         <circle cx="250" cy="250" r="{inner_r}" stroke="#2d5bd1" stroke-width="3" fill="none"/>
         <circle cx="250" cy="250" r="120" stroke="#2d5bd1" stroke-width="5" fill="none"/>
 
-        <!-- PERFECT TEXT PATH -->
+        <!-- TEXT PATHS -->
         <defs>
             <path id="topArc"
                   d="M {250 - text_r} 250
@@ -53,8 +55,9 @@ def create_svg(name, city):
         </defs>
 
         <!-- TOP TEXT -->
-        <text font-size="{outer_size}" fill="white"
-              font-family="Arial"
+        <text font-size="{outer_size}"
+              fill="white"
+              font-family="Helvetica, Arial"
               letter-spacing="{letter_spacing}">
             <textPath href="#topArc" startOffset="50%" text-anchor="middle">
                 {text}
@@ -62,8 +65,9 @@ def create_svg(name, city):
         </text>
 
         <!-- BOTTOM TEXT -->
-        <text font-size="{outer_size}" fill="white"
-              font-family="Arial"
+        <text font-size="{outer_size}"
+              fill="white"
+              font-family="Helvetica, Arial"
               letter-spacing="{letter_spacing}">
             <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">
                 {text[::-1]}
@@ -71,25 +75,24 @@ def create_svg(name, city):
         </text>
 
         <!-- CENTER TEXT -->
-        <text x="250" y="265"
+        <text x="250" y="270"
               text-anchor="middle"
               font-size="{center_size}"
               fill="white"
-              font-family="Arial"
+              font-family="Helvetica, Arial"
               font-weight="bold">
             {city}
         </text>
 
         <!-- STAR -->
-        <text x="250" y="395"
+        <text x="250" y="392"
               text-anchor="middle"
-              font-size="40"
+              font-size="38"
               fill="#2d5bd1">★</text>
 
     </svg>
     """
     return svg
-
 
 # =========================
 # RENDER SVG (FIXED)
@@ -98,7 +101,6 @@ def render_svg(svg):
     b64 = base64.b64encode(svg.encode()).decode()
     html = f'<img src="data:image/svg+xml;base64,{b64}" width="420"/>'
     st.markdown(html, unsafe_allow_html=True)
-
 
 # =========================
 # MAIN
@@ -116,7 +118,7 @@ if uploaded_excel:
         render_svg(preview_svg)
 
         # =========================
-        # DOWNLOAD
+        # GENERATE
         # =========================
         if st.button("🚀 Generate All"):
             os.makedirs("out", exist_ok=True)
@@ -137,4 +139,4 @@ if uploaded_excel:
             with open(zip_path, "rb") as f:
                 st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-            st.success("✅ Stamps generated successfully")
+            st.success("✅ Pixel-perfect stamps generated")
