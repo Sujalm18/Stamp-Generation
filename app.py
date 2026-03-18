@@ -8,67 +8,33 @@ st.set_page_config(page_title="Stamp Generator PRO", layout="centered")
 st.title("🖋️ Smart Stamp Generator")
 
 # =========================
-# 🧠 AUTO TEMPLATE SELECTOR
-# =========================
-def choose_template(name):
-    name = name.strip()
-
-    if name.replace(" ", "").isdigit():
-        return "Number"
-
-    length = len(name)
-
-    if length < 18:
-        return "Simple"
-    elif length < 30:
-        return "Company"
-    else:
-        return "Compact"
-
-
-# =========================
-# 🔥 PERFECT SCALING ENGINE
+# 🧠 SCALING ENGINE
 # =========================
 def compute_text_settings(name):
     length = len(name)
 
-    if length <= 18:
-        return 44, 1.5, 182
-    elif length <= 26:
-        return 38, 1.2, 183
-    elif length <= 34:
-        return 34, 1.0, 184
+    if length < 18:
+        return 36, 2
+    elif length < 26:
+        return 32, 1.5
+    elif length < 34:
+        return 28, 1.2
     else:
-        return 28, 0.8, 185
+        return 24, 1.0
 
 
 # =========================
 # 🎨 SVG GENERATOR
 # =========================
 def create_svg(name, city):
-    name = name.upper()
-    city = city.upper()
+    name = name.upper().strip()
+    city = city.upper().strip()
 
-    template = choose_template(name)
-    font_size, spacing, radius = compute_text_settings(name)
+    TEXT_RADIUS = 190  # PERFECT center between 200 & 180
 
-    # Avoid repetition for long text
-    if len(name) > 30:
-        circular_text = name
-    else:
-        circular_text = f"{name} • {name}"
+    font_size, spacing = compute_text_settings(name)
 
-    # Center text logic
-    if template == "Company":
-        center_text = "AUTHORISED SIGNATORY"
-    elif template == "Simple":
-        center_text = city
-    elif template == "Compact":
-        center_text = city
-        font_size -= 4
-        spacing -= 0.2
-    else:
-        center_text = "0123456"
+    circular_text = f"{name} • "
 
     svg = f"""
     <svg width="500" height="500" viewBox="0 0 500 500"
@@ -78,60 +44,49 @@ def create_svg(name, city):
         <rect width="100%" height="100%" fill="white"/>
 
         <!-- Rings -->
-        <circle cx="250" cy="250" r="200" stroke="#2d5bd1" stroke-width="5" fill="none"/>
-        <circle cx="250" cy="250" r="180" stroke="#2d5bd1" stroke-width="2" fill="none"/>
-        <circle cx="250" cy="250" r="120" stroke="#2d5bd1" stroke-width="3" fill="none"/>
+        <circle cx="250" cy="250" r="200"
+                stroke="#2d5bd1" stroke-width="5" fill="none"/>
+        <circle cx="250" cy="250" r="180"
+                stroke="#2d5bd1" stroke-width="2" fill="none"/>
+        <circle cx="250" cy="250" r="120"
+                stroke="#2d5bd1" stroke-width="3" fill="none"/>
 
-        <!-- Arc Paths -->
+        <!-- Circular Path -->
         <defs>
-            <path id="topArc"
-                  d="M {250 - radius} 250
-                     A {radius} {radius} 0 0 1 {250 + radius} 250"/>
-            <path id="bottomArc"
-                  d="M {250 + radius} 250
-                     A {radius} {radius} 0 0 1 {250 - radius} 250"/>
+            <path id="circlePath"
+                  d="
+                    M 250 250
+                    m -{TEXT_RADIUS}, 0
+                    a {TEXT_RADIUS},{TEXT_RADIUS} 0 1,1 {TEXT_RADIUS*2},0
+                    a {TEXT_RADIUS},{TEXT_RADIUS} 0 1,1 -{TEXT_RADIUS*2},0
+                  "/>
         </defs>
 
-        <!-- TOP TEXT -->
+        <!-- Circular Text -->
         <text font-size="{font_size}"
               fill="#2d5bd1"
-              font-family="Arial"
+              font-family="Arial Black, Arial"
               letter-spacing="{spacing}">
-            <textPath href="#topArc"
+            <textPath href="#circlePath"
                       startOffset="50%"
-                      text-anchor="middle"
-                      dy="8">
-                {circular_text}
+                      text-anchor="middle">
+                {circular_text * 6}
             </textPath>
         </text>
 
-        <!-- BOTTOM TEXT -->
-        <text font-size="{font_size}"
+        <!-- Center Text -->
+        <text x="250" y="255"
+              text-anchor="middle"
+              font-size="42"
               fill="#2d5bd1"
-              font-family="Arial"
-              letter-spacing="{spacing}">
-            <textPath href="#bottomArc"
-                      startOffset="50%"
-                      text-anchor="middle"
-                      dy="-8">
-                {circular_text[::-1]}
-            </textPath>
+              font-family="Arial Black, Arial">
+            {city}
         </text>
 
-        <!-- CENTER TEXT -->
-        <text x="250" y="270"
+        <!-- Star -->
+        <text x="250" y="385"
               text-anchor="middle"
-              font-size="70"
-              fill="#2d5bd1"
-              font-family="Arial"
-              font-weight="bold">
-            {center_text}
-        </text>
-
-        <!-- STAR -->
-        <text x="250" y="390"
-              text-anchor="middle"
-              font-size="36"
+              font-size="28"
               fill="#2d5bd1">★</text>
 
     </svg>
@@ -141,7 +96,7 @@ def create_svg(name, city):
 
 
 # =========================
-# 🖼️ SAFE PREVIEW RENDER
+# 🖼️ PREVIEW RENDER
 # =========================
 def render_svg(svg):
     b64 = base64.b64encode(svg.encode()).decode()
@@ -166,10 +121,8 @@ if uploaded_excel:
         preview_svg = create_svg(df.iloc[0]["name"], df.iloc[0]["city"])
         render_svg(preview_svg)
 
-        st.caption(f"Auto Template: {choose_template(df.iloc[0]['name'])}")
-
         # =========================
-        # 🚀 BULK GENERATION
+        # 🚀 GENERATE ALL
         # =========================
         if st.button("Generate Stamps"):
             os.makedirs("out", exist_ok=True)
@@ -190,4 +143,4 @@ if uploaded_excel:
             with open(zip_path, "rb") as f:
                 st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-            st.success("✅ All stamps generated successfully!")
+            st.success("✅ Stamps generated successfully!")
