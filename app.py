@@ -1,4 +1,4 @@
-# 🚀 STREAMLIT STAMP GENERATOR (FINAL VERSION WITH SLIDERS 🔥)
+# 🚀 STREAMLIT STAMP GENERATOR (PIXEL-PERFECT ENGINE 🔥 FINAL)
 
 import streamlit as st
 import pandas as pd
@@ -9,20 +9,16 @@ import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
 
-st.title("🖋️ Stamp Generator (Interactive UI)")
+st.title("🖋️ Stamp Generator (Pixel Perfect)")
 
-# =========================
-# 🎛️ CONTROLS (LIKE STAMPJAM)
-# =========================
-
-font_size_slider = st.slider("Font Size", 10, 100, 40)
-letter_spacing_slider = st.slider("Letter Spacing", 5, 30, 12)
-radius_slider = st.slider("Radius Adjust", 0.1, 0.5, 0.25)
-arc_span_slider = st.slider("Arc Span (Text Width)", 60, 200, 140)
-start_angle_slider = st.slider("Start Angle", -180, 180, -90)
+# 🎛️ CONTROLS
+font_size = st.slider("Font Size", 10, 100, 40)
+radius_adjust = st.slider("Radius Adjust", 0.1, 0.5, 0.22)
+arc_span = st.slider("Arc Span", 80, 200, 140)
+start_angle = st.slider("Start Angle", -180, 180, -90)
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-uploaded_templates = st.file_uploader("Upload Stamp Templates (PNG)", type=["png"], accept_multiple_files=True)
+templates = st.file_uploader("Upload Templates", type=["png"], accept_multiple_files=True)
 
 # Font loader
 
@@ -32,38 +28,42 @@ def get_font(size):
     except:
         return ImageFont.load_default()
 
-# Circular text (TOP ARC)
+# ✅ TRUE BASELINE CIRCULAR TEXT ENGINE
 
 def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
 
-    arc_span = arc_span_slider
+    ascent, descent = font.getmetrics()
+    text_height = ascent + descent
 
     if len(text) > 1:
         angle_step = arc_span / (len(text) - 1)
     else:
         angle_step = 0
 
-    start_angle = start_angle_slider - arc_span / 2
+    start = start_angle - arc_span / 2
 
     for i, char in enumerate(text):
-        angle = start_angle + i * angle_step
-        angle_rad = math.radians(angle)
+        angle = start + i * angle_step
+        rad = math.radians(angle)
 
-        x = center[0] + radius * math.cos(angle_rad)
-        y = center[1] + radius * math.sin(angle_rad)
+        x = center[0] + radius * math.cos(rad)
+        y = center[1] + radius * math.sin(rad)
 
-        char_img = Image.new("RGBA", (120, 120), (0,0,0,0))
+        char_img = Image.new("RGBA", (200, 200), (0,0,0,0))
         char_draw = ImageDraw.Draw(char_img)
-        char_draw.text((60,60), char, font=font, fill="black", anchor="mm")
+
+        # baseline aligned drawing
+        char_draw.text((100,100), char, font=font, fill="black", anchor="mm")
 
         rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
 
-        draw.bitmap((x-60, y-60), rotated)
+        # 🔥 BASELINE SHIFT (FINAL KEY)
+        draw.bitmap((x-100, y-100 - text_height * 0.35), rotated)
 
 # Center text
 
-def draw_center_text(draw, center, text, font):
+def draw_center(draw, center, text, font):
     bbox = draw.textbbox((0,0), text, font=font)
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
@@ -71,85 +71,73 @@ def draw_center_text(draw, center, text, font):
 
 # Generator
 
-def generate_preview(df, templates):
-    previews = []
+def generate(df, templates):
+    results = []
 
     for _, row in df.iterrows():
         name = str(row["name"])
         city = str(row["city"])
 
-        for template_file in templates:
-            template = Image.open(template_file).convert("RGBA")
-            img = template.copy()
+        for t in templates:
+            img = Image.open(t).convert("RGBA")
             draw = ImageDraw.Draw(img)
 
-            center = (img.width // 2, img.height // 2)
+            center = (img.width//2, img.height//2)
 
             outer = img.width * 0.44
             inner = img.width * 0.30
 
-            base_radius = inner + (outer - inner) * radius_slider
+            font_outer = get_font(font_size)
+            ascent, descent = font_outer.getmetrics()
+            text_height = ascent + descent
 
-            font_outer = get_font(font_size_slider)
-            font_center = get_font(int(font_size_slider * 1.5))
+            base_radius = inner + (outer-inner) * radius_adjust
 
-            # 🔥 FINAL RADIUS FIX (accounts for font height)
-            radius = int(base_radius - font_outer.size * 0.6)
+            # 🔥 FINAL PERFECT RADIUS
+            radius = int(base_radius - text_height * 0.8)
 
             draw_circular_text(draw, center, radius, name, font_outer)
-            draw_center_text(draw, center, city.upper(), font_center)
 
-            previews.append((img, f"{name}_{city}_{template_file.name}"))
+            font_center = get_font(int(font_size*1.5))
+            draw_center(draw, center, city.upper(), font_center)
 
-    return previews
+            results.append((img, f"{name}_{city}_{t.name}"))
 
-# =========================
-# 🚀 MAIN FLOW
-# =========================
+    return results
 
-if uploaded_file and uploaded_templates:
-    try:
-        df = pd.read_excel(uploaded_file)
-        df.columns = [col.lower() for col in df.columns]
+# MAIN
+if uploaded_file and templates:
+    df = pd.read_excel(uploaded_file)
+    df.columns = [c.lower() for c in df.columns]
 
-        if "name" not in df.columns or "city" not in df.columns:
-            st.error("Excel must contain Name and City")
-        else:
-            st.subheader("👀 Live Preview")
+    st.subheader("👀 Preview")
+    previews = generate(df.head(2), templates)
 
-            previews = generate_preview(df.head(2), uploaded_templates)
+    for img, name in previews:
+        st.image(img, caption=name)
 
-            for img, name in previews:
-                st.image(img, caption=name)
+    if st.button("🚀 Generate"):
+        os.makedirs("out", exist_ok=True)
+        files = []
 
-            if st.button("🚀 Generate & Download"):
-                os.makedirs("outputs", exist_ok=True)
-                output_files = []
+        outputs = generate(df, templates)
 
-                previews = generate_preview(df, uploaded_templates)
+        for img, name in outputs:
+            path = f"out/{name}.png"
+            img.save(path)
+            files.append(path)
 
-                for img, name in previews:
-                    path = os.path.join("outputs", name + ".png")
-                    img.save(path)
-                    output_files.append(path)
+        zip_path = "stamps.zip"
+        with zipfile.ZipFile(zip_path, 'w') as z:
+            for f in files:
+                z.write(f, os.path.basename(f))
 
-                zip_path = "stamps.zip"
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for file in output_files:
-                        zipf.write(file, os.path.basename(file))
+        with open(zip_path, "rb") as f:
+            st.download_button("⬇️ Download", f, file_name="stamps.zip")
 
-                with open(zip_path, "rb") as f:
-                    st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
+        st.success("✅ Pixel-perfect output generated")
 
-                st.success("✅ Perfect Output Generated")
-
-    except Exception as e:
-        st.error(str(e))
-
-st.markdown("---")
-st.caption("Now fully interactive — adjust sliders until PERFECT 🎯")
-
-# requirements.txt
+# requirements
 # streamlit
 # pandas
 # pillow
