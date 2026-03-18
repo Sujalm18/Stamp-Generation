@@ -7,13 +7,12 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Professional Stamp Generator")
+st.title("🖋️ Stamp Generator (Final Stable Version)")
 
 # =========================
 # 🎛️ CONTROLS
 # =========================
-font_size = st.slider("Font Size", 30, 120, 60)
-arc_strength = st.slider("Arc Strength", 0.8, 2.0, 1.2)
+font_size = st.slider("Font Size", 20, 80, 40)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 uploaded_templates = st.file_uploader(
@@ -56,44 +55,47 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 REAL CURVED TEXT ENGINE
+# 🔥 CLEAN CIRCULAR TEXT
 # =========================
-def draw_curved_text(img, center, radius, text, font):
+def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
 
-    # Step 1: render straight text
-    dummy = Image.new("RGBA", (3000, 500), (0, 0, 0, 0))
-    d = ImageDraw.Draw(dummy)
+    total_angle = 140  # arc span (like reference)
+    start_angle = -90 - total_angle / 2
 
-    bbox = d.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
+    n = len(text)
+    if n == 0:
+        return
 
-    txt_img = Image.new("RGBA", (text_w, text_h), (0, 0, 0, 0))
-    d2 = ImageDraw.Draw(txt_img)
-    d2.text((0, 0), text, font=font, fill="black")
+    step = total_angle / (n - 1 if n > 1 else 1)
 
-    result = img.copy()
+    for i, char in enumerate(text):
+        angle = start_angle + i * step
+        rad = math.radians(angle)
 
-    # Step 2: map text onto arc
-    for x in range(text_w):
-        for y in range(text_h):
-            px = txt_img.getpixel((x, y))
-            if px[3] == 0:
-                continue
+        x = center[0] + radius * math.cos(rad)
+        y = center[1] + radius * math.sin(rad)
 
-            # angle mapping (centered)
-            angle = (x / text_w - 0.5) * math.pi * arc_strength
+        # create character canvas
+        box = int(font.size * 3)
+        char_img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
+        char_draw = ImageDraw.Draw(char_img)
 
-            r = radius - y
+        char_draw.text(
+            (box // 2, box // 2),
+            char,
+            font=font,
+            fill="black",
+            anchor="mm"
+        )
 
-            new_x = int(center[0] + r * math.cos(angle - math.pi/2))
-            new_y = int(center[1] + r * math.sin(angle - math.pi/2))
+        # ✅ OUTWARD FACING
+        rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
 
-            if 0 <= new_x < img.width and 0 <= new_y < img.height:
-                result.putpixel((new_x, new_y), px)
-
-    return result
+        draw.bitmap(
+            (x - box // 2, y - box // 2),
+            rotated
+        )
 
 # =========================
 # 📍 CENTER TEXT
@@ -122,6 +124,7 @@ def generate(df, templates):
 
         for t in templates:
             img = Image.open(t).convert("RGBA")
+            draw = ImageDraw.Draw(img)
 
             center = (img.width // 2, img.height // 2)
 
@@ -133,14 +136,12 @@ def generate(df, templates):
 
             font_outer = get_font(font_size)
 
-            # 🔥 PERFECT POSITION INSIDE BAND
-            radius = int(inner + (outer - inner) * 0.65)
+            # 🔥 PERFECT POSITION BETWEEN RINGS
+            radius = int(inner + (outer - inner) * 0.55)
 
-            img = draw_curved_text(img, center, radius, name, font_outer)
+            draw_circular_text(draw, center, radius, name, font_outer)
 
-            draw = ImageDraw.Draw(img)
-
-            font_center = get_font(int(font_size * 0.8))
+            font_center = get_font(int(font_size * 1.2))
             draw_center(draw, center, city.upper(), font_center)
 
             results.append((img, f"{name}_{city}_{t.name}"))
@@ -179,4 +180,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Final Stamp Generated")
+        st.success("✅ Stamp Generated Successfully")
