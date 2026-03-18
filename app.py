@@ -64,7 +64,7 @@ def get_ring_radius(img):
     inner = img.width * 0.30
 
     # 🔥 LOWERED RADIUS (closer to inner ring as you requested)
-    return int(inner + (outer - inner) * 0.35)  # EXACT middle between rings
+    return int(inner + (outer - inner) * 0.30)  # EXACT middle between rings
 
 # Generator
 
