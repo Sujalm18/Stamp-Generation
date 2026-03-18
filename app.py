@@ -5,18 +5,16 @@ import zipfile
 import cairosvg
 
 st.set_page_config(page_title="Stamp Generator PRO", layout="centered")
-
-st.title("🖋️ Stamp Generator (Production Ready)")
+st.title("🖋️ Stamp Generator (Production Version)")
 
 # =========================
 # 🎛️ CONTROLS
 # =========================
-outer_text_size = st.slider("Outer Text Size", 20, 80, 40)
-center_text_size = st.slider("Center Text Size", 30, 120, 70)
+outer_size = st.slider("Outer Text Size", 20, 80, 40)
+center_size = st.slider("Center Text Size", 30, 120, 70)
 letter_spacing = st.slider("Letter Spacing", 0, 10, 2)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
-
 
 # =========================
 # 🔥 SVG ENGINE (PERFECT)
@@ -25,8 +23,7 @@ def create_svg(name, city):
     name = name.upper()
     city = city.upper()
 
-    # Add separators like real stamp
-    full_text = f"{name} • {name}"
+    text = f"{name} • {name}"
 
     svg = f"""
     <svg width="500" height="500" viewBox="0 0 500 500"
@@ -42,43 +39,32 @@ def create_svg(name, city):
 
         <!-- Paths -->
         <defs>
-            <!-- Top arc -->
-            <path id="topArc"
-                  d="M 50 250 A 200 200 0 0 1 450 250"/>
-
-            <!-- Bottom arc (correct orientation) -->
-            <path id="bottomArc"
-                  d="M 450 250 A 200 200 0 0 1 50 250"/>
+            <path id="topArc" d="M 50 250 A 200 200 0 0 1 450 250"/>
+            <path id="bottomArc" d="M 450 250 A 200 200 0 0 1 50 250"/>
         </defs>
 
         <!-- Top Text -->
-        <text font-size="{outer_text_size}"
-              fill="white"
+        <text font-size="{outer_size}" fill="white"
               font-family="Arial"
               letter-spacing="{letter_spacing}">
-            <textPath href="#topArc"
-                      startOffset="50%"
-                      text-anchor="middle">
-                {full_text}
+            <textPath href="#topArc" startOffset="50%" text-anchor="middle">
+                {text}
             </textPath>
         </text>
 
-        <!-- Bottom Text (flipped properly) -->
-        <text font-size="{outer_text_size}"
-              fill="white"
+        <!-- Bottom Text -->
+        <text font-size="{outer_size}" fill="white"
               font-family="Arial"
               letter-spacing="{letter_spacing}">
-            <textPath href="#bottomArc"
-                      startOffset="50%"
-                      text-anchor="middle">
-                {full_text[::-1]}
+            <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">
+                {text[::-1]}
             </textPath>
         </text>
 
-        <!-- Center Text -->
+        <!-- Center -->
         <text x="250" y="265"
               text-anchor="middle"
-              font-size="{center_text_size}"
+              font-size="{center_size}"
               fill="white"
               font-family="Arial"
               font-weight="bold">
@@ -86,19 +72,17 @@ def create_svg(name, city):
         </text>
 
         <!-- Star -->
-        <text x="250" y="395"
+        <text x="250" y="400"
               text-anchor="middle"
               font-size="40"
               fill="#2d5bd1">★</text>
 
     </svg>
     """
-
     return svg
 
-
 # =========================
-# 🚀 MAIN LOGIC
+# 🚀 MAIN
 # =========================
 if uploaded_excel:
     df = pd.read_excel(uploaded_excel)
@@ -111,15 +95,14 @@ if uploaded_excel:
 
         svg_preview = create_svg(df.iloc[0]["name"], df.iloc[0]["city"])
 
-        # ✅ FIXED RENDERING
+        # ✅ FIXED SVG RENDER
         st.markdown(svg_preview, unsafe_allow_html=True)
 
         # =========================
-        # DOWNLOAD
+        # GENERATE
         # =========================
         if st.button("🚀 Generate All"):
             os.makedirs("out", exist_ok=True)
-
             zip_path = "stamps.zip"
 
             with zipfile.ZipFile(zip_path, "w") as z:
@@ -143,4 +126,4 @@ if uploaded_excel:
             with open(zip_path, "rb") as f:
                 st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-            st.success("✅ Done — Pixel Perfect Output")
+            st.success("✅ All stamps generated successfully")
