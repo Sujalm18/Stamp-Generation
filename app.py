@@ -7,7 +7,7 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator Pro", layout="centered")
-st.title("🖋️ Pixel Perfect Stamp Generator")
+st.title("🖋️ Final Stamp Generator")
 
 # =========================
 # 🎛️ CONTROLS
@@ -45,7 +45,6 @@ def detect_ring_radii(img):
     cx, cy = w // 2, h // 2
 
     radii = []
-
     for x in range(cx, w):
         if blue_mask[cy, x]:
             radii.append(x - cx)
@@ -56,25 +55,25 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 DYNAMIC ARC ENGINE
+# 🔥 FIXED ARC TEXT
 # =========================
 def draw_arc_text(draw, center, radius, text, font, top=True):
     text = text.upper()
 
-    if len(text) == 0:
+    if not text:
         return
 
-    # measure real width
+    # 🔥 reverse for bottom arc
+    if not top:
+        text = text[::-1]
+
     char_widths = [draw.textlength(c, font=font) for c in text]
     total_width = sum(char_widths)
 
     circumference = 2 * math.pi * radius
     angle_per_pixel = 360 / circumference
 
-    # dynamic arc based on text length
     total_angle = total_width * angle_per_pixel
-
-    # clamp for clean look
     total_angle = max(60, min(total_angle, 140))
 
     start_angle = -90 - total_angle / 2
@@ -105,7 +104,8 @@ def draw_arc_text(draw, center, radius, text, font, top=True):
             anchor="mm"
         )
 
-        rotation = angle + 90 if top else angle - 90
+        # 🔥 SAME rotation for both arcs (important)
+        rotation = angle + 90
 
         rotated = char_img.rotate(rotation, resample=Image.BICUBIC)
 
@@ -150,13 +150,13 @@ def generate(df, templates):
                 inner = img.width * 0.30
                 outer = img.width * 0.45
 
-            # balanced radius
+            # 🔥 balanced placement
             radius = int(inner + (outer - inner) * 0.60)
 
             font_outer = get_font(int(font_size * 1.2))
             font_center = get_font(int(center_size * 1.6))
 
-            # smart split (word-safe)
+            # word-safe split
             words = name.upper().split()
             half = len(words) // 2
             top_text = " ".join(words[:half])
@@ -203,4 +203,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Final Perfect Stamp Generated")
+        st.success("✅ Final Stamp Generated")
