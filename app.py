@@ -1,198 +1,99 @@
 import streamlit as st
 import pandas as pd
-from PIL import Image, ImageDraw, ImageFont
-import numpy as np
-import math
+import base64
 import os
 import zipfile
 
-st.set_page_config(page_title="Stamp Generator Pro", layout="centered")
-st.title("🖋️ Final Stamp Generator")
+st.set_page_config(page_title="Stamp Generator PRO", layout="centered")
+st.title("🖋️ Perfect Stamp Generator (SVG Engine)")
 
-# =========================
-# 🎛️ CONTROLS
-# =========================
-font_size = st.slider("Outer Text Size", 20, 80, 40)
+font_size = st.slider("Outer Text Size", 20, 100, 40)
 center_size = st.slider("Center Text Size", 20, 120, 70)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
-uploaded_templates = st.file_uploader(
-    "Upload Templates (PNG)", type=["png"], accept_multiple_files=True
-)
 
 # =========================
-# 🔤 FONT
+# 🔥 SVG STAMP GENERATOR
 # =========================
-def get_font(size):
-    try:
-        return ImageFont.truetype("Roboto-Bold.ttf", size)
-    except:
-        return ImageFont.load_default()
+def create_svg(name, city):
+    name = name.upper()
+    city = city.upper()
 
-# =========================
-# 🔍 DETECT RINGS
-# =========================
-def detect_ring_radii(img):
-    img_np = np.array(img)
+    svg = f'''
+    <svg width="500" height="500" viewBox="0 0 500 500"
+         xmlns="http://www.w3.org/2000/svg">
 
-    blue_mask = (
-        (img_np[:, :, 2] > 150) &
-        (img_np[:, :, 1] < 120) &
-        (img_np[:, :, 0] < 120)
-    )
+        <!-- Rings -->
+        <circle cx="250" cy="250" r="200" stroke="#2d5bd1" stroke-width="6" fill="none"/>
+        <circle cx="250" cy="250" r="185" stroke="#2d5bd1" stroke-width="3" fill="none"/>
+        <circle cx="250" cy="250" r="120" stroke="#2d5bd1" stroke-width="5" fill="none"/>
 
-    h, w = blue_mask.shape
-    cx, cy = w // 2, h // 2
+        <!-- Paths -->
+        <defs>
+            <path id="topArc" d="
+                M 50 250
+                A 200 200 0 0 1 450 250
+            "/>
 
-    radii = []
-    for x in range(cx, w):
-        if blue_mask[cy, x]:
-            radii.append(x - cx)
+            <path id="bottomArc" d="
+                M 450 250
+                A 200 200 0 0 1 50 250
+            "/>
+        </defs>
 
-    if len(radii) < 10:
-        return None, None
+        <!-- Top Text -->
+        <text font-size="{font_size}" fill="#ffffff" font-family="Roboto, Arial" letter-spacing="2">
+            <textPath href="#topArc" startOffset="50%" text-anchor="middle">
+                {name}
+            </textPath>
+        </text>
 
-    return min(radii), max(radii)
+        <!-- Bottom Text -->
+        <text font-size="{font_size}" fill="#ffffff" font-family="Roboto, Arial" letter-spacing="2">
+            <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">
+                {name}
+            </textPath>
+        </text>
 
-# =========================
-# 🔥 FIXED ARC TEXT
-# =========================
-def draw_arc_text(draw, center, radius, text, font, top=True):
-    text = text.upper()
+        <!-- Center -->
+        <text x="250" y="270" text-anchor="middle"
+              font-size="{center_size}" fill="#ffffff"
+              font-family="Roboto, Arial">
+            {city}
+        </text>
 
-    if not text:
-        return
+        <!-- Star -->
+        <text x="250" y="410" text-anchor="middle"
+              font-size="40" fill="#2d5bd1">★</text>
 
-    # 🔥 reverse for bottom arc
-    if not top:
-        text = text[::-1]
-
-    char_widths = [draw.textlength(c, font=font) for c in text]
-    total_width = sum(char_widths)
-
-    circumference = 2 * math.pi * radius
-    angle_per_pixel = 360 / circumference
-
-    total_angle = total_width * angle_per_pixel
-    total_angle = max(60, min(total_angle, 140))
-
-    start_angle = -90 - total_angle / 2
-    current_angle = start_angle
-
-    for i, char in enumerate(text):
-        char_angle = char_widths[i] * angle_per_pixel
-        angle = current_angle + char_angle / 2
-
-        if not top:
-            angle += 180
-
-        rad = math.radians(angle)
-
-        x = center[0] + radius * math.cos(rad)
-        y = center[1] + radius * math.sin(rad)
-
-        box = int(font.size * 2.5)
-
-        char_img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
-        char_draw = ImageDraw.Draw(char_img)
-
-        char_draw.text(
-            (box // 2, box // 2),
-            char,
-            font=font,
-            fill="white",
-            anchor="mm"
-        )
-
-        # 🔥 SAME rotation for both arcs (important)
-        rotation = angle + 90
-
-        rotated = char_img.rotate(rotation, resample=Image.BICUBIC)
-
-        draw.bitmap((x - box // 2, y - box // 2), rotated)
-
-        current_angle += char_angle
-
-# =========================
-# 📍 CENTER TEXT
-# =========================
-def draw_center(draw, center, text, font):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
-
-    draw.text(
-        (center[0] - w / 2, center[1] - h / 2),
-        text,
-        fill="white",
-        font=font
-    )
+    </svg>
+    '''
+    return svg
 
 # =========================
 # 🚀 GENERATE
 # =========================
-def generate(df, templates):
-    results = []
-
-    for _, row in df.iterrows():
-        name = str(row["name"])
-        city = str(row["city"])
-
-        for t in templates:
-            img = Image.open(t).convert("RGBA")
-            draw = ImageDraw.Draw(img)
-
-            center = (img.width // 2, img.height // 2)
-
-            inner, outer = detect_ring_radii(img)
-
-            if inner is None:
-                inner = img.width * 0.30
-                outer = img.width * 0.45
-
-            # 🔥 balanced placement
-            radius = int(inner + (outer - inner) * 0.60)
-
-            font_outer = get_font(int(font_size * 1.2))
-            font_center = get_font(int(center_size * 1.6))
-
-            # word-safe split
-            words = name.upper().split()
-            half = len(words) // 2
-            top_text = " ".join(words[:half])
-            bottom_text = " ".join(words[half:])
-
-            draw_arc_text(draw, center, radius, top_text, font_outer, top=True)
-            draw_arc_text(draw, center, radius, bottom_text, font_outer, top=False)
-
-            draw_center(draw, center, city.upper(), font_center)
-
-            results.append((img, f"{name}_{city}_{t.name}"))
-
-    return results
-
-# =========================
-# 🧠 MAIN
-# =========================
-if uploaded_excel and uploaded_templates:
+if uploaded_excel:
     df = pd.read_excel(uploaded_excel)
     df.columns = [c.lower() for c in df.columns]
 
     st.subheader("👀 Preview")
-    previews = generate(df.head(2), uploaded_templates)
 
-    for img, name in previews:
-        st.image(img, caption=name)
+    preview_svg = create_svg(df.iloc[0]["name"], df.iloc[0]["city"])
+    st.image(preview_svg)
 
-    if st.button("🚀 Generate"):
+    if st.button("🚀 Generate All"):
         os.makedirs("out", exist_ok=True)
         files = []
 
-        outputs = generate(df, uploaded_templates)
+        for _, row in df.iterrows():
+            svg = create_svg(row["name"], row["city"])
+            filename = f'{row["name"]}_{row["city"]}.svg'
+            path = f"out/{filename}"
 
-        for img, name in outputs:
-            path = f"out/{name}.png"
-            img.save(path)
+            with open(path, "w") as f:
+                f.write(svg)
+
             files.append(path)
 
         zip_path = "stamps.zip"
@@ -203,4 +104,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Final Stamp Generated")
+        st.success("✅ Perfect Stamps Generated")
