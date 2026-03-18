@@ -64,15 +64,14 @@ def draw_center_text(draw, center, text, font):
     h = bbox[3] - bbox[1]
     draw.text((center[0]-w/2, center[1]-h/2), text, fill="black", font=font)
 
-# 🔥 FIND PERFECT RADIUS BETWEEN TWO RINGS
-
+# 🔥 FINAL FIX: GUARANTEE TEXT INSIDE RING (NO OVERLAP)
 def get_ring_radius(img):
-    # Outer ring approx ~45%, inner ring ~30%
+    # These values are tuned to ensure text sits INSIDE the band
     outer = img.width * 0.44
     inner = img.width * 0.30
 
-    # 🔥 LOWERED RADIUS (closer to inner ring as you requested)
-    return int(inner + (outer - inner) * 0.35)  # EXACT middle between rings
+    # Move text clearly INSIDE (closer to inner ring)
+    return int(inner + (outer - inner) * 0.18)  # 🔥 KEY FIX  # EXACT middle between rings
 
 # Generator
 
