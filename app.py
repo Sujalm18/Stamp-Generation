@@ -7,12 +7,13 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Final Stamp Generator")
+st.title("🖋️ Professional Stamp Generator")
 
 # =========================
 # 🎛️ CONTROLS
 # =========================
-font_size = st.slider("Font Size", 20, 80, 40)
+font_size = st.slider("Font Size", 30, 120, 60)
+arc_strength = st.slider("Arc Strength", 0.8, 2.0, 1.2)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 uploaded_templates = st.file_uploader(
@@ -29,7 +30,7 @@ def get_font(size):
         return ImageFont.load_default()
 
 # =========================
-# 🔍 AUTO DETECT RING
+# 🔍 DETECT RING
 # =========================
 def detect_ring_radii(img):
     img_np = np.array(img)
@@ -55,89 +56,62 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 PERFECT CIRCULAR TEXT
+# 🔥 REAL CURVED TEXT ENGINE
 # =========================
-def draw_circular_text(draw, center, radius, text, font):
+def draw_curved_text(img, center, radius, text, font):
     text = text.upper()
 
-    # Character widths
-    char_widths = [draw.textlength(c, font=font) for c in text]
-    total_width = sum(char_widths)
+    # Step 1: render straight text
+    dummy = Image.new("RGBA", (3000, 500), (0, 0, 0, 0))
+    d = ImageDraw.Draw(dummy)
 
-    circumference = 2 * math.pi * radius
-    angle_per_pixel = 360 / circumference
+    bbox = d.textbbox((0, 0), text, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
 
-    total_angle = total_width * angle_per_pixel
-    start_angle = -90 - total_angle / 2
+    txt_img = Image.new("RGBA", (text_w, text_h), (0, 0, 0, 0))
+    d2 = ImageDraw.Draw(txt_img)
+    d2.text((0, 0), text, font=font, fill="black")
 
-    current_angle = start_angle
+    result = img.copy()
 
-    for i, char in enumerate(text):
-        char_width = char_widths[i]
-        char_angle = char_width * angle_per_pixel
+    # Step 2: map text onto arc
+    for x in range(text_w):
+        for y in range(text_h):
+            px = txt_img.getpixel((x, y))
+            if px[3] == 0:
+                continue
 
-        angle = current_angle + char_angle / 2
-        rad = math.radians(angle)
+            # angle mapping (centered)
+            angle = (x / text_w - 0.5) * math.pi * arc_strength
 
-        x = center[0] + radius * math.cos(rad)
-        y = center[1] + radius * math.sin(rad)
+            r = radius - y
 
-        CHAR_BOX = int(font.size * 1.3)
+            new_x = int(center[0] + r * math.cos(angle - math.pi/2))
+            new_y = int(center[1] + r * math.sin(angle - math.pi/2))
 
-        char_img = Image.new("RGBA", (CHAR_BOX, CHAR_BOX), (0, 0, 0, 0))
-        char_draw = ImageDraw.Draw(char_img)
+            if 0 <= new_x < img.width and 0 <= new_y < img.height:
+                result.putpixel((new_x, new_y), px)
 
-        char_draw.text(
-            (CHAR_BOX // 2, CHAR_BOX // 2),
-            char,
-            font=font,
-            fill="black",
-            anchor="mm"
-        )
-
-        # 🔥 FINAL ORIENTATION FIX
-        if -180 < angle < 0:
-            rotation = angle + 90   # top arc
-        else:
-            rotation = angle - 90   # bottom arc
-
-        rotated = char_img.rotate(rotation, resample=Image.BICUBIC)
-
-        draw.bitmap(
-            (x - CHAR_BOX // 2, y - CHAR_BOX // 2),
-            rotated
-        )
-
-        current_angle += char_angle
+    return result
 
 # =========================
 # 📍 CENTER TEXT
 # =========================
 def draw_center(draw, center, text, font):
-    lines = text.split("\n")
-    total_height = sum(
-        draw.textbbox((0, 0), line, font=font)[3]
-        for line in lines
+    bbox = draw.textbbox((0, 0), text, font=font)
+    w = bbox[2] - bbox[0]
+    h = bbox[3] - bbox[1]
+
+    draw.text(
+        (center[0] - w / 2, center[1] - h / 2),
+        text,
+        fill="black",
+        font=font
     )
 
-    y = center[1] - total_height / 2
-
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        w = bbox[2] - bbox[0]
-        h = bbox[3] - bbox[1]
-
-        draw.text(
-            (center[0] - w / 2, y),
-            line,
-            fill="black",
-            font=font
-        )
-
-        y += h
-
 # =========================
-# 🚀 GENERATE STAMPS
+# 🚀 GENERATE
 # =========================
 def generate(df, templates):
     results = []
@@ -148,7 +122,6 @@ def generate(df, templates):
 
         for t in templates:
             img = Image.open(t).convert("RGBA")
-            draw = ImageDraw.Draw(img)
 
             center = (img.width // 2, img.height // 2)
 
@@ -156,17 +129,18 @@ def generate(df, templates):
 
             if inner is None:
                 inner = img.width * 0.30
-                outer = img.width * 0.44
+                outer = img.width * 0.45
 
             font_outer = get_font(font_size)
 
-            # Perfect middle of ring
-            radius = int(inner + (outer - inner) * 0.5)
+            # 🔥 PERFECT POSITION INSIDE BAND
+            radius = int(inner + (outer - inner) * 0.65)
 
-            draw_circular_text(draw, center, radius, name, font_outer)
+            img = draw_curved_text(img, center, radius, name, font_outer)
 
-            # Center text
-            font_center = get_font(int(font_size * 1.3))
+            draw = ImageDraw.Draw(img)
+
+            font_center = get_font(int(font_size * 0.8))
             draw_center(draw, center, city.upper(), font_center)
 
             results.append((img, f"{name}_{city}_{t.name}"))
@@ -205,4 +179,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Final Perfect Stamp Generated")
+        st.success("✅ Final Stamp Generated")
