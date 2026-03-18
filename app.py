@@ -7,7 +7,7 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Stamp Generator")
+st.title("🖋️ Final Stamp Generator")
 
 # =========================
 # 🎛️ CONTROLS
@@ -60,25 +60,33 @@ def detect_ring_radii(img):
 def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
 
-    n = len(text)
-    if n == 0:
-        return
+    # measure width of each character
+    char_widths = [draw.textlength(c, font=font) for c in text]
+    total_width = sum(char_widths)
 
-    # Wide arc like reference
-    total_angle = 220
+    circumference = 2 * math.pi * radius
+    angle_per_pixel = 360 / circumference
+
+    # total arc angle needed
+    total_angle = total_width * angle_per_pixel
+
+    # 🔥 IMPORTANT: limit arc (fixes loose spacing)
+    total_angle = min(total_angle, 160)
+
     start_angle = -90 - total_angle / 2
-
-    # tighter spacing
-    step = total_angle / (n + 2)
+    current_angle = start_angle
 
     for i, char in enumerate(text):
-        angle = start_angle + (i + 1) * step
+        char_width = char_widths[i]
+        char_angle = char_width * angle_per_pixel
+
+        angle = current_angle + char_angle / 2
         rad = math.radians(angle)
 
         x = center[0] + radius * math.cos(rad)
         y = center[1] + radius * math.sin(rad)
 
-        box = int(font.size * 2.5)
+        box = int(font.size * 2.2)
 
         char_img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
         char_draw = ImageDraw.Draw(char_img)
@@ -91,13 +99,15 @@ def draw_circular_text(draw, center, radius, text, font):
             anchor="mm"
         )
 
-        # outward orientation
+        # outward rotation
         rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
 
         draw.bitmap(
             (x - box // 2, y - box // 2),
             rotated
         )
+
+        current_angle += char_angle
 
 # =========================
 # 📍 CENTER TEXT
@@ -138,7 +148,7 @@ def generate(df, templates):
 
             font_outer = get_font(font_size)
 
-            # PERFECT position between rings
+            # 🔥 PERFECT RING POSITION
             radius = int(inner + (outer - inner) * 0.50)
 
             draw_circular_text(draw, center, radius, name, font_outer)
@@ -182,4 +192,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Stamp Generated Successfully")
+        st.success("✅ Final Perfect Stamp Generated")
