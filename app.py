@@ -27,8 +27,16 @@ def get_font(size):
 def draw_circular_text(draw, center, radius, text, font, inward=True):
     text = text.upper()
 
-    angle_step = 360 / len(text)
-    start_angle = -90  # top center
+    # 🔥 FIX: Only use TOP ARC (not full 360)
+    arc_span = 140  # degrees (controls how wide text spreads)
+
+    # Calculate spacing based on text length
+    if len(text) > 1:
+        angle_step = arc_span / (len(text) - 1)
+    else:
+        angle_step = 0
+
+    start_angle = -90 - arc_span / 2  # center at top
 
     for i, char in enumerate(text):
         angle = start_angle + i * angle_step
@@ -41,7 +49,7 @@ def draw_circular_text(draw, center, radius, text, font, inward=True):
         char_draw = ImageDraw.Draw(char_img)
         char_draw.text((70,70), char, font=font, fill="black", anchor="mm")
 
-        # 🔥 CRITICAL: rotate inward so text faces center
+        # rotate properly along arc
         rotation = angle + 90 if inward else angle - 90
 
         rotated = char_img.rotate(rotation, resample=Image.BICUBIC)
