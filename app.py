@@ -7,19 +7,12 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Advanced Stamp Generator")
+st.title("🖋️ Professional Stamp Generator")
 
 # =========================
 # 🎛️ CONTROLS
 # =========================
 font_size = st.slider("Font Size", 20, 80, 40)
-arc_span = st.slider("Arc Span", 80, 180, 120)
-start_angle = st.slider("Start Angle", -180, 180, -90)
-
-letter_spacing = st.slider("Letter Spacing", 0.5, 3.0, 1.2)
-radius_offset = st.slider("Radius Adjust", -50, 50, 0)
-text_offset = st.slider("Text Vertical Offset", -50, 50, 0)
-font_scale = st.slider("Font Scale", 0.5, 2.0, 1.0)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 uploaded_templates = st.file_uploader(
@@ -62,30 +55,29 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 DRAW TEXT ON ARC
+# 🔥 PERFECT CIRCULAR TEXT
 # =========================
 def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
 
-    ascent, descent = font.getmetrics()
-    text_height = ascent + descent
+    n = len(text)
+    if n == 0:
+        return
 
-    if len(text) > 1:
-        step = (arc_span / (len(text) - 1)) * letter_spacing
-    else:
-        step = 0
+    # 🔥 CLEAN DISTRIBUTION (LIKE YOUR TARGET)
+    total_angle = 300
+    angle_step = total_angle / n
 
-    start = start_angle - arc_span / 2
+    start_angle = -90 - total_angle / 2
 
     for i, char in enumerate(text):
-        angle = start + i * step
+        angle = start_angle + i * angle_step
         rad = math.radians(angle)
 
         x = center[0] + radius * math.cos(rad)
         y = center[1] + radius * math.sin(rad)
 
-        # 🔥 FIXED CHAR BOX
-        CHAR_BOX = int(font.size * 1.2)
+        CHAR_BOX = int(font.size * 1.4)
 
         char_img = Image.new("RGBA", (CHAR_BOX, CHAR_BOX), (0, 0, 0, 0))
         char_draw = ImageDraw.Draw(char_img)
@@ -98,14 +90,11 @@ def draw_circular_text(draw, center, radius, text, font):
             anchor="mm"
         )
 
-        # ✅ OUTWARD FACING TEXT
+        # ✅ OUTWARD TEXT
         rotated = char_img.rotate(angle - 90, resample=Image.BICUBIC)
 
         draw.bitmap(
-            (
-                x - CHAR_BOX // 2,
-                y - CHAR_BOX // 2 - text_height * 0.25 + text_offset
-            ),
+            (x - CHAR_BOX // 2, y - CHAR_BOX // 2),
             rotated
         )
 
@@ -113,16 +102,21 @@ def draw_circular_text(draw, center, radius, text, font):
 # 📍 CENTER TEXT
 # =========================
 def draw_center(draw, center, text, font):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
+    lines = text.split("\n")
+    y_offset = 0
 
-    draw.text(
-        (center[0] - w / 2, center[1] - h / 2),
-        text,
-        fill="black",
-        font=font
-    )
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+
+        draw.text(
+            (center[0] - w / 2, center[1] + y_offset - h / 2),
+            line,
+            fill="black",
+            font=font
+        )
+        y_offset += h
 
 # =========================
 # 🚀 GENERATE STAMPS
@@ -146,19 +140,15 @@ def generate(df, templates):
                 inner = img.width * 0.30
                 outer = img.width * 0.44
 
-            font_outer = get_font(int(font_size * font_scale))
+            font_outer = get_font(font_size)
 
-            ascent, descent = font_outer.getmetrics()
-            text_height = ascent + descent
-
-            base_radius = (inner + outer) / 2
-
-            # 🔥 FINAL RADIUS FIX
-            radius = int(base_radius - text_height * 0.4 + radius_offset)
+            # 🔥 PERFECT POSITION (CENTER OF BAND)
+            radius = int(inner + (outer - inner) * 0.5)
 
             draw_circular_text(draw, center, radius, name, font_outer)
 
-            font_center = get_font(int(font_size * 1.5))
+            # 🔥 CENTER TEXT (LIKE YOUR TARGET)
+            font_center = get_font(int(font_size * 1.3))
             draw_center(draw, center, city.upper(), font_center)
 
             results.append((img, f"{name}_{city}_{t.name}"))
@@ -166,7 +156,7 @@ def generate(df, templates):
     return results
 
 # =========================
-# 🧠 MAIN
+# 🧠 MAIN FLOW
 # =========================
 if uploaded_excel and uploaded_templates:
     df = pd.read_excel(uploaded_excel)
@@ -197,4 +187,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Perfect Output Generated")
+        st.success("✅ Stamp Generated Successfully")
