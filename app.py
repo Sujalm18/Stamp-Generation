@@ -7,14 +7,19 @@ import os
 import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
-st.title("🖋️ Stamp Generator (Final Working Version)")
+st.title("🖋️ Advanced Stamp Generator")
 
 # =========================
-# 🔧 CONTROLS
+# 🎛️ CONTROLS
 # =========================
 font_size = st.slider("Font Size", 20, 80, 40)
 arc_span = st.slider("Arc Span", 80, 180, 120)
 start_angle = st.slider("Start Angle", -180, 180, -90)
+
+letter_spacing = st.slider("Letter Spacing", 0.5, 3.0, 1.2)
+radius_offset = st.slider("Radius Adjust", -50, 50, 0)
+text_offset = st.slider("Text Vertical Offset", -50, 50, 0)
+font_scale = st.slider("Font Scale", 0.5, 2.0, 1.0)
 
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 uploaded_templates = st.file_uploader(
@@ -22,7 +27,7 @@ uploaded_templates = st.file_uploader(
 )
 
 # =========================
-# 📌 FONT
+# 🔤 FONT
 # =========================
 def get_font(size):
     try:
@@ -31,15 +36,15 @@ def get_font(size):
         return ImageFont.load_default()
 
 # =========================
-# 🔥 AUTO DETECT RING
+# 🔍 AUTO DETECT RING
 # =========================
 def detect_ring_radii(img):
     img_np = np.array(img)
 
     blue_mask = (
         (img_np[:, :, 2] > 150) &
-        (img_np[:, :, 1] < 100) &
-        (img_np[:, :, 0] < 100)
+        (img_np[:, :, 1] < 120) &
+        (img_np[:, :, 0] < 120)
     )
 
     h, w = blue_mask.shape
@@ -57,7 +62,7 @@ def detect_ring_radii(img):
     return min(radii), max(radii)
 
 # =========================
-# 🔥 DRAW CIRCULAR TEXT
+# 🔥 DRAW TEXT ON ARC
 # =========================
 def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
@@ -66,7 +71,7 @@ def draw_circular_text(draw, center, radius, text, font):
     text_height = ascent + descent
 
     if len(text) > 1:
-        step = arc_span / (len(text) - 1)
+        step = (arc_span / (len(text) - 1)) * letter_spacing
     else:
         step = 0
 
@@ -79,7 +84,7 @@ def draw_circular_text(draw, center, radius, text, font):
         x = center[0] + radius * math.cos(rad)
         y = center[1] + radius * math.sin(rad)
 
-        # 🔥 SMALL CHAR BOX (CRITICAL FIX)
+        # 🔥 FIXED CHAR BOX
         CHAR_BOX = int(font.size * 1.2)
 
         char_img = Image.new("RGBA", (CHAR_BOX, CHAR_BOX), (0, 0, 0, 0))
@@ -93,12 +98,13 @@ def draw_circular_text(draw, center, radius, text, font):
             anchor="mm"
         )
 
-        rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
+        # ✅ OUTWARD FACING TEXT
+        rotated = char_img.rotate(angle - 90, resample=Image.BICUBIC)
 
         draw.bitmap(
             (
                 x - CHAR_BOX // 2,
-                y - CHAR_BOX // 2 - text_height * 0.25
+                y - CHAR_BOX // 2 - text_height * 0.25 + text_offset
             ),
             rotated
         )
@@ -119,7 +125,7 @@ def draw_center(draw, center, text, font):
     )
 
 # =========================
-# 🚀 GENERATE
+# 🚀 GENERATE STAMPS
 # =========================
 def generate(df, templates):
     results = []
@@ -134,20 +140,21 @@ def generate(df, templates):
 
             center = (img.width // 2, img.height // 2)
 
-            # 🔥 AUTO DETECT RING
             inner, outer = detect_ring_radii(img)
 
             if inner is None:
                 inner = img.width * 0.30
                 outer = img.width * 0.44
 
-            font_outer = get_font(font_size)
+            font_outer = get_font(int(font_size * font_scale))
 
             ascent, descent = font_outer.getmetrics()
             text_height = ascent + descent
 
-            # 🔥 FINAL PERFECT RADIUS
-            radius = int((inner + outer) / 2 - text_height * 0.4)
+            base_radius = (inner + outer) / 2
+
+            # 🔥 FINAL RADIUS FIX
+            radius = int(base_radius - text_height * 0.4 + radius_offset)
 
             draw_circular_text(draw, center, radius, name, font_outer)
 
@@ -159,7 +166,7 @@ def generate(df, templates):
     return results
 
 # =========================
-# 🧠 MAIN FLOW
+# 🧠 MAIN
 # =========================
 if uploaded_excel and uploaded_templates:
     df = pd.read_excel(uploaded_excel)
@@ -190,4 +197,4 @@ if uploaded_excel and uploaded_templates:
         with open(zip_path, "rb") as f:
             st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-        st.success("✅ Done — Perfect Output Generated")
+        st.success("✅ Perfect Output Generated")
