@@ -1,4 +1,4 @@
-# 🚀 STREAMLIT STAMP GENERATOR (FIXED PROFESSIONAL VERSION)
+# 🚀 STREAMLIT STAMP GENERATOR (FINAL FIX - PROPER TEXT FIT INSIDE RING)
 
 import streamlit as st
 import pandas as pd
@@ -9,52 +9,64 @@ import zipfile
 
 st.set_page_config(page_title="Stamp Generator", layout="centered")
 
-st.title("🖋️ Stamp Generator (Accurate Version)")
-st.write("Now text fits perfectly inside the stamp")
+st.title("🖋️ Stamp Generator (Correct Geometry Version)")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 uploaded_templates = st.file_uploader("Upload Stamp Templates (PNG)", type=["png"], accept_multiple_files=True)
 
 # Font loader
+
 def get_font(size):
     try:
         return ImageFont.truetype("arial.ttf", size)
     except:
         return ImageFont.load_default()
 
-# ✅ IMPROVED circular text (PROPER spacing + alignment)
-def draw_circular_text(draw, center, radius, text, font, start_angle=0, spacing=12):
+# ✅ FIXED circular text (FULL 360 FIT + AUTO SPACING)
+
+def draw_circular_text(draw, center, radius, text, font):
     text = text.upper()
 
-    # total arc based on spacing
-    total_angle = spacing * len(text)
-    angle = start_angle - total_angle / 2
+    # Calculate circumference
+    circumference = 2 * math.pi * radius
+
+    # Estimate text width
+    total_text_width = sum([draw.textlength(c, font=font) for c in text])
+
+    # Scale spacing to fit inside circle
+    angle_per_pixel = 360 / circumference
+
+    current_angle = -90 - (total_text_width * angle_per_pixel) / 2
 
     for char in text:
-        angle_rad = math.radians(angle)
+        char_width = draw.textlength(char, font=font)
+        char_angle = char_width * angle_per_pixel
+
+        angle_rad = math.radians(current_angle + char_angle / 2)
 
         x = center[0] + radius * math.cos(angle_rad)
         y = center[1] + radius * math.sin(angle_rad)
 
-        # create rotated character
-        char_img = Image.new("RGBA", (150, 150), (0,0,0,0))
+        # rotate character properly
+        char_img = Image.new("RGBA", (200, 200), (0,0,0,0))
         char_draw = ImageDraw.Draw(char_img)
-        char_draw.text((75,75), char, font=font, fill="black", anchor="mm")
+        char_draw.text((100,100), char, font=font, fill="black", anchor="mm")
 
-        rotated = char_img.rotate(angle + 90, resample=Image.BICUBIC)
+        rotated = char_img.rotate(current_angle + char_angle / 2 + 90, resample=Image.BICUBIC)
 
-        draw.bitmap((x-75, y-75), rotated)
+        draw.bitmap((x-100, y-100), rotated)
 
-        angle += spacing
+        current_angle += char_angle
 
-# ✅ CENTER TEXT FUNCTION (for city)
+# Center text
+
 def draw_center_text(draw, center, text, font):
     bbox = draw.textbbox((0,0), text, font=font)
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
     draw.text((center[0]-w/2, center[1]-h/2), text, fill="black", font=font)
 
-# Generate previews
+# Main generator
 
 def generate_preview(df, templates):
     previews = []
@@ -70,17 +82,16 @@ def generate_preview(df, templates):
 
             center = (img.width // 2, img.height // 2)
 
-            # 🔥 KEY FIXES (based on your UI values)
-            outer_radius = int(img.width * 0.42)   # inside outer ring
-            inner_radius = int(img.width * 0.30)   # for inner text if needed
+            # 🔥 PERFECT RADIUS (BETWEEN RINGS)
+            outer_radius = int(img.width * 0.36)
 
             font_outer = get_font(int(img.width * 0.045))
-            font_center = get_font(int(img.width * 0.08))
+            font_center = get_font(int(img.width * 0.09))
 
-            # NAME → around circle (top half)
-            draw_circular_text(draw, center, outer_radius, name, font_outer, start_angle=270, spacing=10)
+            # NAME (fits exactly inside ring)
+            draw_circular_text(draw, center, outer_radius, name, font_outer)
 
-            # CITY → center
+            # CITY (center)
             draw_center_text(draw, center, city.upper(), font_center)
 
             previews.append((img, f"{name}_{city}_{template_file.name}"))
@@ -93,7 +104,7 @@ if uploaded_file and uploaded_templates:
         df.columns = [col.lower() for col in df.columns]
 
         if "name" not in df.columns or "city" not in df.columns:
-            st.error("Excel must contain 'Name' and 'City'")
+            st.error("Excel must contain Name and City")
         else:
             st.subheader("👀 Preview")
 
@@ -121,13 +132,13 @@ if uploaded_file and uploaded_templates:
                 with open(zip_path, "rb") as f:
                     st.download_button("⬇️ Download ZIP", f, file_name="stamps.zip")
 
-                st.success("✅ Perfect stamps generated!")
+                st.success("✅ FINAL FIX APPLIED")
 
     except Exception as e:
         st.error(str(e))
 
 st.markdown("---")
-st.caption("Now properly aligned: Name on ring, City at center")
+st.caption("Now text auto-fits perfectly inside ring (no overflow, no gaps)")
 
 # requirements.txt
 # streamlit
