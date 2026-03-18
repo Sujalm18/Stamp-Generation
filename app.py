@@ -4,11 +4,11 @@ import os
 import zipfile
 import base64
 
-st.set_page_config(page_title="Stamp Generator PRO", layout="centered")
-st.title("🖋️ Stamp Generator (Final Working Version)")
+st.set_page_config(page_title="Stamp Generator", layout="centered")
+st.title("🖋️ Stamp Generator")
 
 # =========================
-# 🎛️ CONTROLS
+# CONTROLS
 # =========================
 outer_size = st.slider("Outer Text Size", 20, 80, 40)
 center_size = st.slider("Center Text Size", 30, 120, 70)
@@ -17,7 +17,7 @@ letter_spacing = st.slider("Letter Spacing", 0, 10, 2)
 uploaded_excel = st.file_uploader("Upload Excel (Name, City)", type=["xlsx"])
 
 # =========================
-# 🔥 SVG ENGINE
+# SVG ENGINE (FINAL FIXED)
 # =========================
 def create_svg(name, city):
     name = name.upper()
@@ -25,25 +25,34 @@ def create_svg(name, city):
 
     text = f"{name} • {name}"
 
+    # 🔥 KEY FIX: text radius BETWEEN rings
+    outer_r = 200
+    inner_r = 180
+    text_r = (outer_r + inner_r) // 2  # = 190
+
     svg = f"""
     <svg width="500" height="500" viewBox="0 0 500 500"
          xmlns="http://www.w3.org/2000/svg">
 
-        <!-- Background -->
         <rect width="100%" height="100%" fill="#0b1220"/>
 
         <!-- Rings -->
-        <circle cx="250" cy="250" r="200" stroke="#2d5bd1" stroke-width="6" fill="none"/>
-        <circle cx="250" cy="250" r="180" stroke="#2d5bd1" stroke-width="3" fill="none"/>
+        <circle cx="250" cy="250" r="{outer_r}" stroke="#2d5bd1" stroke-width="6" fill="none"/>
+        <circle cx="250" cy="250" r="{inner_r}" stroke="#2d5bd1" stroke-width="3" fill="none"/>
         <circle cx="250" cy="250" r="120" stroke="#2d5bd1" stroke-width="5" fill="none"/>
 
-        <!-- Paths -->
+        <!-- PERFECT TEXT PATH -->
         <defs>
-            <path id="topArc" d="M 50 250 A 200 200 0 0 1 450 250"/>
-            <path id="bottomArc" d="M 450 250 A 200 200 0 0 1 50 250"/>
+            <path id="topArc"
+                  d="M {250 - text_r} 250
+                     A {text_r} {text_r} 0 0 1 {250 + text_r} 250"/>
+
+            <path id="bottomArc"
+                  d="M {250 + text_r} 250
+                     A {text_r} {text_r} 0 0 1 {250 - text_r} 250"/>
         </defs>
 
-        <!-- Top Text -->
+        <!-- TOP TEXT -->
         <text font-size="{outer_size}" fill="white"
               font-family="Arial"
               letter-spacing="{letter_spacing}">
@@ -52,7 +61,7 @@ def create_svg(name, city):
             </textPath>
         </text>
 
-        <!-- Bottom Text -->
+        <!-- BOTTOM TEXT -->
         <text font-size="{outer_size}" fill="white"
               font-family="Arial"
               letter-spacing="{letter_spacing}">
@@ -61,7 +70,7 @@ def create_svg(name, city):
             </textPath>
         </text>
 
-        <!-- Center Text -->
+        <!-- CENTER TEXT -->
         <text x="250" y="265"
               text-anchor="middle"
               font-size="{center_size}"
@@ -71,8 +80,8 @@ def create_svg(name, city):
             {city}
         </text>
 
-        <!-- Star -->
-        <text x="250" y="400"
+        <!-- STAR -->
+        <text x="250" y="395"
               text-anchor="middle"
               font-size="40"
               fill="#2d5bd1">★</text>
@@ -83,16 +92,16 @@ def create_svg(name, city):
 
 
 # =========================
-# 🔥 FIXED SVG RENDER
+# RENDER SVG (FIXED)
 # =========================
 def render_svg(svg):
     b64 = base64.b64encode(svg.encode()).decode()
-    html = f'<img src="data:image/svg+xml;base64,{b64}" width="400"/>'
+    html = f'<img src="data:image/svg+xml;base64,{b64}" width="420"/>'
     st.markdown(html, unsafe_allow_html=True)
 
 
 # =========================
-# 🚀 MAIN
+# MAIN
 # =========================
 if uploaded_excel:
     df = pd.read_excel(uploaded_excel)
@@ -107,7 +116,7 @@ if uploaded_excel:
         render_svg(preview_svg)
 
         # =========================
-        # GENERATE + DOWNLOAD
+        # DOWNLOAD
         # =========================
         if st.button("🚀 Generate All"):
             os.makedirs("out", exist_ok=True)
