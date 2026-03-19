@@ -48,7 +48,7 @@ def create_svg(name, city):
                 stroke="#2d5bd1" stroke-width="5" fill="none"/>
         <circle cx="250" cy="250" r="180"
                 stroke="#2d5bd1" stroke-width="2" fill="none"/>
-        <circle cx="250" cy="250" r="110"
+        <circle cx="250" cy="250" r="100"
                 stroke="#2d5bd1" stroke-width="3" fill="none"/>
 
         <!-- Circular Path -->
@@ -84,7 +84,7 @@ def create_svg(name, city):
         </text>
 
         <!-- Star -->
-        <text x="250" y="450"
+        <text x="250" y="400"
               text-anchor="middle"
               font-size="28"
               fill="#2d5bd1">★</text>
