@@ -84,7 +84,7 @@ def create_svg(name, city):
         </text>
 
         <!-- Star -->
-        <text x="250" y="400"
+        <text x="250" y="390"
               text-anchor="middle"
               font-size="28"
               fill="#2d5bd1">★</text>
