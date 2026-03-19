@@ -44,7 +44,7 @@ def create_svg(name, city):
         <rect width="100%" height="100%" fill="white"/>
 
         <!-- Rings -->
-        <circle cx="250" cy="250" r="200"
+        <circle cx="250" cy="250" r="220"
                 stroke="#2d5bd1" stroke-width="5" fill="none"/>
         <circle cx="250" cy="250" r="180"
                 stroke="#2d5bd1" stroke-width="2" fill="none"/>
